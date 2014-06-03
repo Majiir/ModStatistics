@@ -73,6 +73,11 @@ namespace ModStatistics
             running = true;
             DontDestroyOnLoad(this);
 
+            if (File.Exists(folder + "checkpoint.json"))
+            {
+                File.Move(folder + "checkpoint.json", createReportPath());
+            }
+
             sendReports();
         }
 
@@ -112,6 +117,7 @@ namespace ModStatistics
         private DateTime started = DateTime.UtcNow;
         private DateTime sceneStarted = DateTime.UtcNow;
         private Dictionary<GameScenes, TimeSpan> sceneTimes = new Dictionary<GameScenes, TimeSpan>();
+        private DateTime nextSave = DateTime.MinValue;
 
         public void FixedUpdate()
         {
@@ -121,6 +127,16 @@ namespace ModStatistics
             {
                 updateSceneTimes();
             }
+
+            var now = DateTime.UtcNow;
+            if (nextSave < now)
+            {
+                nextSave = now.AddSeconds(15);
+                updateSceneTimes();
+
+                var report = prepareReport(true);
+                File.WriteAllText(folder + "checkpoint.json", report);
+            }
         }
 
         public void OnDestroy()
@@ -129,13 +145,15 @@ namespace ModStatistics
 
             updateSceneTimes();
 
-            var report = prepareReport();
+            var report = prepareReport(false);
 
             string path = createReportPath();
 
             Debug.Log("[ModStatistics] Saving report");
 
             File.WriteAllText(path, report);
+
+            File.Delete(folder + "checkpoint.json");
 
             sendReports();
         }
@@ -195,12 +213,13 @@ namespace ModStatistics
             sceneTimes[lastScene.Value] += (sceneStarted - lastStarted);
         }
 
-        private string prepareReport()
+        private string prepareReport(bool crashed)
         {
             var report = new
             {
                 started = started,
                 finished = sceneStarted,
+                crashed = crashed,
                 statisticsVersion = version,
                 id = id.ToString("N"),
                 gameVersion = new
