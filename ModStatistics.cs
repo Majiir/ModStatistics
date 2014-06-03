@@ -194,7 +194,7 @@ namespace ModStatistics
             var report = new
             {
                 started = started,
-                finished = DateTime.UtcNow,
+                finished = sceneStarted,
                 statisticsVersion = version,
                 id = id.ToString("N"),
                 gameVersion = new
