@@ -132,7 +132,6 @@ namespace ModStatistics
             if (nextSave < now)
             {
                 nextSave = now.AddSeconds(15);
-                updateSceneTimes();
 
                 var report = prepareReport(true);
                 File.WriteAllText(folder + "checkpoint.json", report);
@@ -144,7 +143,6 @@ namespace ModStatistics
             if (!running) { return; }
 
             Debug.Log("[ModStatistics] Saving report");
-            updateSceneTimes();
             File.WriteAllText(createReportPath(), prepareReport(false));
 
             File.Delete(folder + "checkpoint.json");
@@ -208,6 +206,8 @@ namespace ModStatistics
 
         private string prepareReport(bool crashed)
         {
+            updateSceneTimes();
+
             var report = new
             {
                 started = started,
