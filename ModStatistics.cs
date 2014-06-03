@@ -184,7 +184,7 @@ namespace ModStatistics
                 sceneTimes[lastScene.Value] = TimeSpan.Zero;
             }
 
-            sceneTimes[lastScene.Value] += (DateTime.UtcNow - lastStarted);
+            sceneTimes[lastScene.Value] += (sceneStarted - lastStarted);
         }
 
         private string prepareReport()
