@@ -143,18 +143,11 @@ namespace ModStatistics
         {
             if (!running) { return; }
 
-            updateSceneTimes();
-
-            var report = prepareReport(false);
-
-            string path = createReportPath();
-
             Debug.Log("[ModStatistics] Saving report");
-
-            File.WriteAllText(path, report);
+            updateSceneTimes();
+            File.WriteAllText(createReportPath(), prepareReport(false));
 
             File.Delete(folder + "checkpoint.json");
-
             sendReports();
         }
 
