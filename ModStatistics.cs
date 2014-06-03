@@ -1,4 +1,5 @@
-﻿using System;
+﻿using JsonFx.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -134,7 +135,7 @@ namespace ModStatistics
             string path;
             do
             {
-                path = folder + "report-" + i + ".xml";
+                path = folder + "report-" + i + ".json";
                 i++;
             } while (File.Exists(path));
 
@@ -147,10 +148,11 @@ namespace ModStatistics
 
         private void sendReports()
         {
-            var files = Directory.GetFiles(folder, "report-*.xml");
+            var files = Directory.GetFiles(folder, "report-*.json");
             using (var client = new WebClient())
             {
                 client.Headers.Add(HttpRequestHeader.UserAgent, "ModStatistics/" + version);
+                client.Headers.Add(HttpRequestHeader.ContentType, "application/json");
                 foreach (var file in files)
                 {
                     try
@@ -189,131 +191,36 @@ namespace ModStatistics
 
         private string prepareReport()
         {
-            var doc = new XmlDocument();
-            var root = doc.DocumentElement;
-
-            var declaration = doc.CreateXmlDeclaration("1.0", "UTF-8", null);
-            doc.InsertBefore(declaration, root);
-
-            var reportEl = doc.CreateElement("report");
-            doc.AppendChild(reportEl);
-
-            var el = doc.CreateElement("started");
-            var text = doc.CreateTextNode(started.ToString("o"));
-            el.AppendChild(text);
-            reportEl.AppendChild(el);
-
-            el = doc.CreateElement("finished");
-            text = doc.CreateTextNode(DateTime.UtcNow.ToString("o"));
-            el.AppendChild(text);
-            reportEl.AppendChild(el);
-
-            el = doc.CreateElement("statisticsVersion");
-            text = doc.CreateTextNode(version.ToString());
-            el.AppendChild(text);
-            reportEl.AppendChild(el);
-
-            el = doc.CreateElement("id");
-            text = doc.CreateTextNode(id.ToString("N"));
-            el.AppendChild(text);
-            reportEl.AppendChild(el);
-
-            var versionEl = doc.CreateElement("gameVersion");
-            reportEl.AppendChild(versionEl);
-
-            el = doc.CreateElement("major");
-            text = doc.CreateTextNode(Versioning.version_major.ToString());
-            el.AppendChild(text);
-            versionEl.AppendChild(el);
-
-            el = doc.CreateElement("minor");
-            text = doc.CreateTextNode(Versioning.version_minor.ToString());
-            el.AppendChild(text);
-            versionEl.AppendChild(el);
-
-            el = doc.CreateElement("revision");
-            text = doc.CreateTextNode(Versioning.Revision.ToString());
-            el.AppendChild(text);
-            versionEl.AppendChild(el);
-
-            el = doc.CreateElement("experimental");
-            text = doc.CreateTextNode(Versioning.Experimental.ToString());
-            el.AppendChild(text);
-            versionEl.AppendChild(el);
-
-            el = doc.CreateElement("build");
-            text = doc.CreateTextNode(Versioning.BuildID.ToString());
-            el.AppendChild(text);
-            versionEl.AppendChild(el);
-
-            el = doc.CreateElement("isBeta");
-            text = doc.CreateTextNode(Versioning.isBeta.ToString());
-            el.AppendChild(text);
-            versionEl.AppendChild(el);
-
-            el = doc.CreateElement("isSteam");
-            text = doc.CreateTextNode(Versioning.IsSteam.ToString());
-            el.AppendChild(text);
-            versionEl.AppendChild(el);
-
-            var scenesEl = doc.CreateElement("scenes");
-            reportEl.AppendChild(scenesEl);
-
-            foreach (var pair in sceneTimes)
+            var report = new
             {
-                el = doc.CreateElement(pair.Key.ToString().ToLower());
-                text = doc.CreateTextNode(XmlConvert.ToString(pair.Value));
-                el.AppendChild(text);
-                scenesEl.AppendChild(el);
-            }
+                started = started,
+                finished = DateTime.UtcNow,
+                statisticsVersion = version,
+                id = id.ToString("N"),
+                gameVersion = new {
+                    build = Versioning.BuildID,
+                    major = Versioning.version_major,
+                    minor = Versioning.version_minor,
+                    revision = Versioning.Revision,
+                    experimental = Versioning.Experimental,
+                    isBeta = Versioning.isBeta,
+                    isSteam = Versioning.IsSteam,
+                },
+                scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => XmlConvert.ToString(p.Value)),
+                assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
+                                select new
+                                {
+                                    dllName = assembly.dllName,
+                                    name = assembly.name,
+                                    url = assembly.url,
+                                    kspVersionMajor = assembly.versionMajor,
+                                    kspVersionMinor = assembly.versionMinor,
+                                    fileVersion = assembly.assembly.GetName().Version,
+                                    informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.assembly.Location).ProductVersion,
+                                },
+            };
 
-            var assembliesEl = doc.CreateElement("assemblies");
-            reportEl.AppendChild(assembliesEl);
-
-            for (int i = 1; i < AssemblyLoader.loadedAssemblies.Count; i++)
-            {
-                var assembly = AssemblyLoader.loadedAssemblies[i];
-
-                var assemblyEl = doc.CreateElement("assembly");
-                assembliesEl.AppendChild(assemblyEl);
-
-                el = doc.CreateElement("dllName");
-                text = doc.CreateTextNode(assembly.dllName);
-                el.AppendChild(text);
-                assemblyEl.AppendChild(el);
-
-                el = doc.CreateElement("name");
-                text = doc.CreateTextNode(assembly.name);
-                el.AppendChild(text);
-                assemblyEl.AppendChild(el);
-
-                el = doc.CreateElement("url");
-                text = doc.CreateTextNode(assembly.url);
-                el.AppendChild(text);
-                assemblyEl.AppendChild(el);
-
-                el = doc.CreateElement("versionMajor");
-                text = doc.CreateTextNode(assembly.versionMajor.ToString());
-                el.AppendChild(text);
-                assemblyEl.AppendChild(el);
-
-                el = doc.CreateElement("versionMinor");
-                text = doc.CreateTextNode(assembly.versionMinor.ToString());
-                el.AppendChild(text);
-                assemblyEl.AppendChild(el);
-
-                el = doc.CreateElement("fileVersion");
-                text = doc.CreateTextNode(assembly.assembly.GetName().Version.ToString(4));
-                el.AppendChild(text);
-                assemblyEl.AppendChild(el);
-
-                el = doc.CreateElement("informationalVersion");
-                text = doc.CreateTextNode(System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.assembly.Location).ProductVersion);
-                el.AppendChild(text);
-                assemblyEl.AppendChild(el);
-            }
-
-            return doc.OuterXml;
+            return new JsonWriter().Write(report);
         }
     }
 }
