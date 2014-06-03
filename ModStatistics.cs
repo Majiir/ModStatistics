@@ -208,6 +208,7 @@ namespace ModStatistics
                 },
                 scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => XmlConvert.ToString(p.Value)),
                 assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
+                                let fileVersion = assembly.assembly.GetName().Version
                                 select new
                                 {
                                     dllName = assembly.dllName,
@@ -215,7 +216,13 @@ namespace ModStatistics
                                     url = assembly.url,
                                     kspVersionMajor = assembly.versionMajor,
                                     kspVersionMinor = assembly.versionMinor,
-                                    fileVersion = assembly.assembly.GetName().Version,
+                                    fileVersion = new
+                                    {
+                                        major = fileVersion.Major,
+                                        minor = fileVersion.Minor,
+                                        revision = fileVersion.Revision,
+                                        build = fileVersion.Build,
+                                    },
                                     informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.assembly.Location).ProductVersion,
                                 },
             };
