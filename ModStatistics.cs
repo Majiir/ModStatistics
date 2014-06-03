@@ -131,6 +131,17 @@ namespace ModStatistics
 
             var report = prepareReport();
 
+            string path = createReportPath();
+
+            Debug.Log("[ModStatistics] Saving report");
+
+            File.WriteAllText(path, report);
+
+            sendReports();
+        }
+
+        private static string createReportPath()
+        {
             int i = 0;
             string path;
             do
@@ -138,12 +149,7 @@ namespace ModStatistics
                 path = folder + "report-" + i + ".json";
                 i++;
             } while (File.Exists(path));
-
-            Debug.Log("[ModStatistics] Saving report");
-
-            File.WriteAllText(path, report);
-
-            sendReports();
+            return path;
         }
 
         private void sendReports()
