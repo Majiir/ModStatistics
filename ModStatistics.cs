@@ -111,7 +111,7 @@ namespace ModStatistics
         private GameScenes? scene = null;
         private DateTime started = DateTime.UtcNow;
         private DateTime sceneStarted = DateTime.UtcNow;
-        private Dictionary<GameScenes, TimeSpan> sceneTimes = new Dictionary<GameScenes,TimeSpan>();
+        private Dictionary<GameScenes, TimeSpan> sceneTimes = new Dictionary<GameScenes, TimeSpan>();
 
         public void FixedUpdate()
         {
@@ -197,7 +197,8 @@ namespace ModStatistics
                 finished = DateTime.UtcNow,
                 statisticsVersion = version,
                 id = id.ToString("N"),
-                gameVersion = new {
+                gameVersion = new
+                {
                     build = Versioning.BuildID,
                     major = Versioning.version_major,
                     minor = Versioning.version_minor,
@@ -208,23 +209,23 @@ namespace ModStatistics
                 },
                 scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => XmlConvert.ToString(p.Value)),
                 assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
-                                let fileVersion = assembly.assembly.GetName().Version
-                                select new
-                                {
-                                    dllName = assembly.dllName,
-                                    name = assembly.name,
-                                    url = assembly.url,
-                                    kspVersionMajor = assembly.versionMajor,
-                                    kspVersionMinor = assembly.versionMinor,
-                                    fileVersion = new
-                                    {
-                                        major = fileVersion.Major,
-                                        minor = fileVersion.Minor,
-                                        revision = fileVersion.Revision,
-                                        build = fileVersion.Build,
-                                    },
-                                    informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.assembly.Location).ProductVersion,
-                                },
+                             let fileVersion = assembly.assembly.GetName().Version
+                             select new
+                             {
+                                 dllName = assembly.dllName,
+                                 name = assembly.name,
+                                 url = assembly.url,
+                                 kspVersionMajor = assembly.versionMajor,
+                                 kspVersionMinor = assembly.versionMinor,
+                                 fileVersion = new
+                                 {
+                                     major = fileVersion.Major,
+                                     minor = fileVersion.Minor,
+                                     revision = fileVersion.Revision,
+                                     build = fileVersion.Build,
+                                 },
+                                 informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.assembly.Location).ProductVersion,
+                             },
             };
 
             return new JsonWriter().Write(report);
