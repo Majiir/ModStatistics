@@ -14,7 +14,7 @@ namespace ModStatistics
     internal class ModStatistics : MonoBehaviour
     {
         // The implementation with the highest version number will be allowed to run.
-        private const int version = 2;
+        private const int version = 3;
         private static int _version = version;
 
         private static readonly string folder = KSPUtil.ApplicationRootPath + "GameData" + Path.DirectorySeparatorChar + "ModStatistics" + Path.DirectorySeparatorChar;
@@ -73,6 +73,11 @@ namespace ModStatistics
             running = true;
             DontDestroyOnLoad(this);
 
+            if (File.Exists(folder + "checkpoint.json"))
+            {
+                File.Move(folder + "checkpoint.json", createReportPath());
+            }
+
             sendReports();
         }
 
@@ -111,7 +116,8 @@ namespace ModStatistics
         private GameScenes? scene = null;
         private DateTime started = DateTime.UtcNow;
         private DateTime sceneStarted = DateTime.UtcNow;
-        private Dictionary<GameScenes, TimeSpan> sceneTimes = new Dictionary<GameScenes,TimeSpan>();
+        private Dictionary<GameScenes, TimeSpan> sceneTimes = new Dictionary<GameScenes, TimeSpan>();
+        private DateTime nextSave = DateTime.MinValue;
 
         public void FixedUpdate()
         {
@@ -121,16 +127,30 @@ namespace ModStatistics
             {
                 updateSceneTimes();
             }
+
+            var now = DateTime.UtcNow;
+            if (nextSave < now)
+            {
+                nextSave = now.AddSeconds(15);
+
+                var report = prepareReport(true);
+                File.WriteAllText(folder + "checkpoint.json", report);
+            }
         }
 
         public void OnDestroy()
         {
             if (!running) { return; }
 
-            updateSceneTimes();
+            Debug.Log("[ModStatistics] Saving report");
+            File.WriteAllText(createReportPath(), prepareReport(false));
 
-            var report = prepareReport();
+            File.Delete(folder + "checkpoint.json");
+            sendReports();
+        }
 
+        private static string createReportPath()
+        {
             int i = 0;
             string path;
             do
@@ -138,12 +158,7 @@ namespace ModStatistics
                 path = folder + "report-" + i + ".json";
                 i++;
             } while (File.Exists(path));
-
-            Debug.Log("[ModStatistics] Saving report");
-
-            File.WriteAllText(path, report);
-
-            sendReports();
+            return path;
         }
 
         private void sendReports()
@@ -151,7 +166,7 @@ namespace ModStatistics
             var files = Directory.GetFiles(folder, "report-*.json");
             using (var client = new WebClient())
             {
-                client.Headers.Add(HttpRequestHeader.UserAgent, "ModStatistics/" + version);
+                client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
                 client.Headers.Add(HttpRequestHeader.ContentType, "application/json");
                 foreach (var file in files)
                 {
@@ -189,15 +204,19 @@ namespace ModStatistics
             sceneTimes[lastScene.Value] += (sceneStarted - lastStarted);
         }
 
-        private string prepareReport()
+        private string prepareReport(bool crashed)
         {
+            updateSceneTimes();
+
             var report = new
             {
                 started = started,
-                finished = DateTime.UtcNow,
+                finished = sceneStarted,
+                crashed = crashed,
                 statisticsVersion = version,
                 id = id.ToString("N"),
-                gameVersion = new {
+                gameVersion = new
+                {
                     build = Versioning.BuildID,
                     major = Versioning.version_major,
                     minor = Versioning.version_minor,
@@ -206,21 +225,33 @@ namespace ModStatistics
                     isBeta = Versioning.isBeta,
                     isSteam = Versioning.IsSteam,
                 },
-                scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => XmlConvert.ToString(p.Value)),
+                scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => p.Value.TotalMilliseconds),
                 assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
-                                select new
-                                {
-                                    dllName = assembly.dllName,
-                                    name = assembly.name,
-                                    url = assembly.url,
-                                    kspVersionMajor = assembly.versionMajor,
-                                    kspVersionMinor = assembly.versionMinor,
-                                    fileVersion = assembly.assembly.GetName().Version,
-                                    informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.assembly.Location).ProductVersion,
-                                },
+                             let fileVersion = assembly.assembly.GetName().Version
+                             select new
+                             {
+                                 dllName = assembly.dllName,
+                                 name = assembly.name,
+                                 url = assembly.url,
+                                 kspVersionMajor = assembly.versionMajor,
+                                 kspVersionMinor = assembly.versionMinor,
+                                 fileVersion = new
+                                 {
+                                     major = fileVersion.Major,
+                                     minor = fileVersion.Minor,
+                                     revision = fileVersion.Revision,
+                                     build = fileVersion.Build,
+                                 },
+                                 informationalVersion = getInformationalVersion(assembly.assembly),
+                             },
             };
 
             return new JsonWriter().Write(report);
+        }
+
+        private static string getInformationalVersion(Assembly assembly)
+        {
+            return System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
         }
     }
 }
