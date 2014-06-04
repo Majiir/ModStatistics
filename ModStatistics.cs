@@ -166,7 +166,7 @@ namespace ModStatistics
             var files = Directory.GetFiles(folder, "report-*.json");
             using (var client = new WebClient())
             {
-                client.Headers.Add(HttpRequestHeader.UserAgent, "ModStatistics/" + version);
+                client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
                 client.Headers.Add(HttpRequestHeader.ContentType, "application/json");
                 foreach (var file in files)
                 {
@@ -242,11 +242,16 @@ namespace ModStatistics
                                      revision = fileVersion.Revision,
                                      build = fileVersion.Build,
                                  },
-                                 informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.assembly.Location).ProductVersion,
+                                 informationalVersion = getInformationalVersion(assembly.assembly),
                              },
             };
 
             return new JsonWriter().Write(report);
+        }
+
+        private static string getInformationalVersion(Assembly assembly)
+        {
+            return System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
         }
     }
 }
