@@ -225,7 +225,7 @@ namespace ModStatistics
                     isBeta = Versioning.isBeta,
                     isSteam = Versioning.IsSteam,
                 },
-                scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => XmlConvert.ToString(p.Value)),
+                scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => p.Value.TotalMilliseconds),
                 assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
                              let fileVersion = assembly.assembly.GetName().Version
                              select new
