@@ -168,18 +168,34 @@ namespace ModStatistics
             {
                 client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
                 client.Headers.Add(HttpRequestHeader.ContentType, "application/json");
+
+                client.UploadStringCompleted += (s, e) =>
+                {
+                    var file = (string)e.UserState;
+                    if (e.Cancelled)
+                    {
+                        Debug.LogWarning(String.Format("[ModStatistics] Upload operation for {0} was cancelled", Path.GetFileName(file)));
+                    }
+                    else if (e.Error != null)
+                    {
+                        Debug.LogError(String.Format("[ModStatistics] Could not upload {0}:\n{1}", Path.GetFileName(file), e.Error));
+                    }
+                    else
+                    {
+                        Debug.Log("[ModStatistics] " + Path.GetFileName(file) + " sent successfully");
+                        File.Delete(file);
+                    }
+                };
+
                 foreach (var file in files)
                 {
                     try
                     {
-                        client.UploadString(@"http://stats.majiir.net/submit_report", File.ReadAllText(file));
-                        Debug.Log("[ModStatistics] " + Path.GetFileName(file) + " sent successfully");
-                        File.Delete(file);
+                        client.UploadStringAsync(new Uri(@"http://stats.majiir.net/submit_report"), null, File.ReadAllText(file), file);
                     }
-                    catch (WebException e)
+                    catch (Exception e)
                     {
-                        Debug.LogError(String.Format("[ModStatistics] Could not upload {0}:\n{1}", Path.GetFileName(file), e));
-                        return;
+                        Debug.LogWarning(String.Format("[ModStatistics] Error initiating {0) upload:\n{1}", Path.GetFileName(file), e));
                     }
                 }
             }
