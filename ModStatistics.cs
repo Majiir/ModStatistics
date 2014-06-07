@@ -1,6 +1,7 @@
 ﻿using JsonFx.Json;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -68,6 +69,9 @@ namespace ModStatistics
                     Debug.LogWarning("[ModStatistics] Could not parse ID");
                     createConfig(configpath);
                 }
+
+                var str = node.GetValue("update");
+                if (str != null) { bool.TryParse(str, out update); }
             }
 
             running = true;
@@ -79,6 +83,7 @@ namespace ModStatistics
             }
 
             sendReports();
+            checkUpdates();
         }
 
         private void createConfig(string configpath)
@@ -111,6 +116,7 @@ namespace ModStatistics
         }
 
         private bool running = false;
+        private bool update = true;
 
         private Guid id;
         private GameScenes? scene = null;
@@ -197,6 +203,69 @@ namespace ModStatistics
                         Debug.LogWarning(String.Format("[ModStatistics] Error initiating {0) upload:\n{1}", Path.GetFileName(file), e));
                     }
                 }
+            }
+        }
+
+        private class ManifestEntry
+        {
+            public string url = String.Empty;
+            public string path = String.Empty;
+        }
+
+        private void checkUpdates()
+        {
+            if (!update) { return; }
+
+            using (var client = new WebClient())
+            {
+                client.DownloadStringCompleted += (s, e) =>
+                {
+                    if (e.Cancelled)
+                    {
+                        Debug.LogWarning(String.Format("[ModStatistics] Update query operation was cancelled"));
+                    }
+                    else if (e.Error != null)
+                    {
+                        Debug.LogError(String.Format("[ModStatistics] Could not query for updates:\n{0}", e.Error));
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var manifest = new JsonReader().Read<ManifestEntry[]>(e.Result);
+                            foreach (var entry in manifest)
+                            {
+                                var dest = folder + Path.DirectorySeparatorChar + entry.path;
+                                Directory.CreateDirectory(Path.GetDirectoryName(dest));
+                                client.DownloadFileAsync(new Uri(entry.url), dest, entry);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError(String.Format("[ModStatistics] Error parsing update manifest:\n{0}", ex));
+                        }
+                    }
+                };
+
+                client.DownloadFileCompleted += (s, e) =>
+                {
+                    var entry = e.UserState as ManifestEntry;
+                    if (e.Cancelled)
+                    {
+                        Debug.LogWarning(String.Format("[ModStatistics] Update download operation was cancelled"));
+                    }
+                    else if (e.Error != null)
+                    {
+                        Debug.LogError(String.Format("[ModStatistics] Could not download update for {0}:\n{1}", entry.path, e.Error));
+                    }
+                    else
+                    {
+                        Debug.Log("[ModStatistics] Successfully updated " + entry.path);
+                    }
+                };
+
+                client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
+                client.DownloadStringAsync(new Uri(@"http://stats.majiir.net/update"));
             }
         }
 
