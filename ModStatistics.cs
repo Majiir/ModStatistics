@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Xml;
 using UnityEngine;
 
 namespace ModStatistics
@@ -14,7 +13,7 @@ namespace ModStatistics
     internal class ModStatistics : MonoBehaviour
     {
         // The implementation with the highest version number will be allowed to run.
-        private const int version = 3;
+        private const int version = 4;
         private static int _version = version;
 
         private static readonly string folder = KSPUtil.ApplicationRootPath + "GameData" + Path.DirectorySeparatorChar + "ModStatistics" + Path.DirectorySeparatorChar;
@@ -68,6 +67,9 @@ namespace ModStatistics
                     Debug.LogWarning("[ModStatistics] Could not parse ID");
                     createConfig(configpath);
                 }
+
+                var str = node.GetValue("update");
+                if (str != null) { bool.TryParse(str, out update); }
             }
 
             running = true;
@@ -79,13 +81,15 @@ namespace ModStatistics
             }
 
             sendReports();
+            checkUpdates();
+            install();
         }
 
         private void createConfig(string configpath)
         {
             id = Guid.NewGuid();
             Debug.Log("[ModStatistics] Creating new configuration file");
-            var text = String.Format("// To disable ModStatistics, uncomment the line below." + Environment.NewLine + "// disabled = true" + Environment.NewLine + "id = {0:N}" + Environment.NewLine, id);
+            var text = String.Format("// To disable ModStatistics, change the line below to \"disabled = true\"" + Environment.NewLine + "// Do NOT delete the ModStatistics folder. It could be reinstated by another mod." + Environment.NewLine + "disabled = false" + Environment.NewLine + "id = {0:N}" + Environment.NewLine, id);
             File.WriteAllText(configpath, text);
         }
 
@@ -111,6 +115,7 @@ namespace ModStatistics
         }
 
         private bool running = false;
+        private bool update = true;
 
         private Guid id;
         private GameScenes? scene = null;
@@ -146,7 +151,6 @@ namespace ModStatistics
             File.WriteAllText(createReportPath(), prepareReport(false));
 
             File.Delete(folder + "checkpoint.json");
-            sendReports();
         }
 
         private static string createReportPath()
@@ -168,27 +172,120 @@ namespace ModStatistics
             {
                 client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
                 client.Headers.Add(HttpRequestHeader.ContentType, "application/json");
+
+                client.UploadStringCompleted += (s, e) =>
+                {
+                    var file = (string)e.UserState;
+                    if (e.Cancelled)
+                    {
+                        Debug.LogWarning(String.Format("[ModStatistics] Upload operation for {0} was cancelled", Path.GetFileName(file)));
+                    }
+                    else if (e.Error != null)
+                    {
+                        Debug.LogError(String.Format("[ModStatistics] Could not upload {0}:\n{1}", Path.GetFileName(file), e.Error));
+                    }
+                    else
+                    {
+                        Debug.Log("[ModStatistics] " + Path.GetFileName(file) + " sent successfully");
+                        File.Delete(file);
+                    }
+                };
+
                 foreach (var file in files)
                 {
                     try
                     {
-                        client.UploadString(@"http://stats.majiir.net/submit_report", File.ReadAllText(file));
-                        Debug.Log("[ModStatistics] " + Path.GetFileName(file) + " sent successfully");
-                        File.Delete(file);
+                        client.UploadStringAsync(new Uri(@"http://stats.majiir.net/submit_report"), null, File.ReadAllText(file), file);
                     }
-                    catch (WebException e)
+                    catch (Exception e)
                     {
-                        Debug.LogError(String.Format("[ModStatistics] Could not upload {0}:\n{1}", Path.GetFileName(file), e));
-                        return;
+                        Debug.LogWarning(String.Format("[ModStatistics] Error initiating {0) upload:\n{1}", Path.GetFileName(file), e));
                     }
                 }
             }
         }
 
+        private class ManifestEntry
+        {
+            public string url = String.Empty;
+            public string path = String.Empty;
+        }
+
+        private void checkUpdates()
+        {
+            if (!update) { return; }
+
+            using (var client = new WebClient())
+            {
+                client.DownloadStringCompleted += (s, e) =>
+                {
+                    if (e.Cancelled)
+                    {
+                        Debug.LogWarning(String.Format("[ModStatistics] Update query operation was cancelled"));
+                    }
+                    else if (e.Error != null)
+                    {
+                        Debug.LogError(String.Format("[ModStatistics] Could not query for updates:\n{0}", e.Error));
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var manifest = new JsonReader().Read<ManifestEntry[]>(e.Result);
+                            foreach (var entry in manifest)
+                            {
+                                var dest = folder + Path.DirectorySeparatorChar + entry.path.Replace('/', Path.DirectorySeparatorChar);
+                                Directory.CreateDirectory(Path.GetDirectoryName(dest));
+                                client.DownloadFileAsync(new Uri(entry.url), dest, entry);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError(String.Format("[ModStatistics] Error parsing update manifest:\n{0}", ex));
+                        }
+                    }
+                };
+
+                client.DownloadFileCompleted += (s, e) =>
+                {
+                    var entry = e.UserState as ManifestEntry;
+                    if (e.Cancelled)
+                    {
+                        Debug.LogWarning(String.Format("[ModStatistics] Update download operation was cancelled"));
+                    }
+                    else if (e.Error != null)
+                    {
+                        Debug.LogError(String.Format("[ModStatistics] Could not download update for {0}:\n{1}", entry.path, e.Error));
+                    }
+                    else
+                    {
+                        Debug.Log("[ModStatistics] Successfully updated " + entry.path);
+                    }
+                };
+
+                client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
+                client.DownloadStringAsync(new Uri(@"http://stats.majiir.net/update"));
+            }
+        }
+
+        private void install()
+        {
+            var dest = folder + "Plugins" + Path.DirectorySeparatorChar;
+            Directory.CreateDirectory(dest);
+            if (!File.Exists(dest + "JsonFx.dll"))
+            {
+                var fxpath = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "JsonFx").Location;
+                File.Copy(fxpath, dest + "JsonFx.dll");
+            }
+            var mspath = dest + "ModStatistics-" + getInformationalVersion(Assembly.GetExecutingAssembly()) + ".dll";
+            if (!File.Exists(mspath))
+            {
+                File.Copy(Assembly.GetExecutingAssembly().Location, mspath);
+            }
+        }
+
         private void updateSceneTimes()
         {
-            Debug.Log("[ModStatistics] Updating scene times");
-
             var lastScene = scene;
             var lastStarted = sceneStarted;
             scene = HighLogic.LoadedScene;
@@ -232,6 +329,7 @@ namespace ModStatistics
                              {
                                  dllName = assembly.dllName,
                                  name = assembly.name,
+                                 title = getAssemblyTitle(assembly.assembly),
                                  url = assembly.url,
                                  kspVersionMajor = assembly.versionMajor,
                                  kspVersionMinor = assembly.versionMinor,
@@ -252,6 +350,13 @@ namespace ModStatistics
         private static string getInformationalVersion(Assembly assembly)
         {
             return System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
+        }
+
+        private static string getAssemblyTitle(Assembly assembly)
+        {
+            var attr = assembly.GetCustomAttributes(typeof(AssemblyTitleAttribute), false).OfType<AssemblyTitleAttribute>().FirstOrDefault();
+            if (attr == null) { return String.Empty; }
+            return attr.Title;
         }
     }
 }
