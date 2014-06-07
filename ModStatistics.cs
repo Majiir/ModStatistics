@@ -90,7 +90,7 @@ namespace ModStatistics
         {
             id = Guid.NewGuid();
             Debug.Log("[ModStatistics] Creating new configuration file");
-            var text = String.Format("// To disable ModStatistics, change the line below to \"disabled = true\"" + Environment.NewLine + "disabled = false" + Environment.NewLine + "id = {0:N}" + Environment.NewLine, id);
+            var text = String.Format("// To disable ModStatistics, change the line below to \"disabled = true\"" + Environment.NewLine + "// Do NOT delete the ModStatistics folder. It could be reinstated by another mod." + Environment.NewLine + "disabled = false" + Environment.NewLine + "id = {0:N}" + Environment.NewLine, id);
             File.WriteAllText(configpath, text);
         }
 
