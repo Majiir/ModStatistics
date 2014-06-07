@@ -146,7 +146,6 @@ namespace ModStatistics
             File.WriteAllText(createReportPath(), prepareReport(false));
 
             File.Delete(folder + "checkpoint.json");
-            sendReports();
         }
 
         private static string createReportPath()
