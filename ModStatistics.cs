@@ -288,8 +288,6 @@ namespace ModStatistics
 
         private void updateSceneTimes()
         {
-            Debug.Log("[ModStatistics] Updating scene times");
-
             var lastScene = scene;
             var lastStarted = sceneStarted;
             scene = HighLogic.LoadedScene;
