@@ -236,7 +236,7 @@ namespace ModStatistics
                             var manifest = new JsonReader().Read<ManifestEntry[]>(e.Result);
                             foreach (var entry in manifest)
                             {
-                                var dest = folder + Path.DirectorySeparatorChar + entry.path;
+                                var dest = folder + Path.DirectorySeparatorChar + entry.path.Replace('/', Path.DirectorySeparatorChar);
                                 Directory.CreateDirectory(Path.GetDirectoryName(dest));
                                 client.DownloadFileAsync(new Uri(entry.url), dest, entry);
                             }
