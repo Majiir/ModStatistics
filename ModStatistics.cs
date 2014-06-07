@@ -84,6 +84,7 @@ namespace ModStatistics
 
             sendReports();
             checkUpdates();
+            install();
         }
 
         private void createConfig(string configpath)
@@ -266,6 +267,21 @@ namespace ModStatistics
 
                 client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
                 client.DownloadStringAsync(new Uri(@"http://stats.majiir.net/update"));
+            }
+        }
+
+        private void install()
+        {
+            var dest = folder + "Plugins" + Path.DirectorySeparatorChar;
+            if (!File.Exists(dest + "JsonFx.dll"))
+            {
+                var fxpath = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "JsonFx").Location;
+                File.Copy(fxpath, dest + "JsonFx.dll");
+            }
+            var mspath = dest + "ModStatistics-" + getInformationalVersion(Assembly.GetExecutingAssembly()) + ".dll";
+            if (!File.Exists(mspath))
+            {
+                File.Copy(Assembly.GetExecutingAssembly().Location, mspath);
             }
         }
 
