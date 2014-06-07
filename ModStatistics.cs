@@ -1,12 +1,10 @@
 ﻿using JsonFx.Json;
 using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Xml;
 using UnityEngine;
 
 namespace ModStatistics
