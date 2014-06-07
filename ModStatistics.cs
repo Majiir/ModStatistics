@@ -273,6 +273,7 @@ namespace ModStatistics
         private void install()
         {
             var dest = folder + "Plugins" + Path.DirectorySeparatorChar;
+            Directory.CreateDirectory(dest);
             if (!File.Exists(dest + "JsonFx.dll"))
             {
                 var fxpath = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "JsonFx").Location;
