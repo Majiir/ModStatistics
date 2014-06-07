@@ -333,6 +333,7 @@ namespace ModStatistics
                              {
                                  dllName = assembly.dllName,
                                  name = assembly.name,
+                                 title = getAssemblyTitle(assembly.assembly),
                                  url = assembly.url,
                                  kspVersionMajor = assembly.versionMajor,
                                  kspVersionMinor = assembly.versionMinor,
@@ -353,6 +354,13 @@ namespace ModStatistics
         private static string getInformationalVersion(Assembly assembly)
         {
             return System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
+        }
+
+        private static string getAssemblyTitle(Assembly assembly)
+        {
+            var attr = assembly.GetCustomAttributes(typeof(AssemblyTitleAttribute), false).OfType<AssemblyTitleAttribute>().FirstOrDefault();
+            if (attr == null) { return String.Empty; }
+            return attr.Title;
         }
     }
 }
