@@ -355,9 +355,17 @@ namespace ModStatistics
 
         private static string getAssemblyTitle(Assembly assembly)
         {
-            var attr = assembly.GetCustomAttributes(typeof(AssemblyTitleAttribute), false).OfType<AssemblyTitleAttribute>().FirstOrDefault();
-            if (attr == null) { return String.Empty; }
-            return attr.Title;
+            try
+            {
+                var attr = assembly.GetCustomAttributes(typeof(AssemblyTitleAttribute), false).OfType<AssemblyTitleAttribute>().FirstOrDefault();
+                if (attr == null) { return String.Empty; }
+                return attr.Title;
+            }
+            catch (TypeLoadException e)
+            {
+                Debug.LogError(String.Format("[ModStatistics] Error while inspecting assembly {0}. This probably means that {0} is targeting a runtime other than .NET 3.5. Please notify the author of {0} of this error.\n\n{1}", assembly.GetName().Name, e));
+                return null;
+            }
         }
     }
 }
