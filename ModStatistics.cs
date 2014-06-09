@@ -13,7 +13,7 @@ namespace ModStatistics
     internal class ModStatistics : MonoBehaviour
     {
         // The implementation with the highest version number will be allowed to run.
-        private const int version = 4;
+        private const int version = 5;
         private static int _version = version;
 
         private static readonly string folder = KSPUtil.ApplicationRootPath + "GameData" + Path.DirectorySeparatorChar + "ModStatistics" + Path.DirectorySeparatorChar;
