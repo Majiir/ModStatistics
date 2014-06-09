@@ -170,7 +170,7 @@ namespace ModStatistics
             var files = Directory.GetFiles(folder, "report-*.json");
             using (var client = new WebClient())
             {
-                client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
+                setUserAgent(client);
                 client.Headers.Add(HttpRequestHeader.ContentType, "application/json");
 
                 client.UploadStringCompleted += (s, e) =>
@@ -205,6 +205,11 @@ namespace ModStatistics
             }
         }
 
+        private static void setUserAgent(WebClient client)
+        {
+            client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
+        }
+
         private class ManifestEntry
         {
             public string url = String.Empty;
@@ -236,6 +241,7 @@ namespace ModStatistics
                             {
                                 var dest = folder + Path.DirectorySeparatorChar + entry.path.Replace('/', Path.DirectorySeparatorChar);
                                 Directory.CreateDirectory(Path.GetDirectoryName(dest));
+                                setUserAgent(client);
                                 client.DownloadFileAsync(new Uri(entry.url), dest, entry);
                             }
                         }
@@ -263,7 +269,7 @@ namespace ModStatistics
                     }
                 };
 
-                client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
+                setUserAgent(client);
                 client.DownloadStringAsync(new Uri(@"http://stats.majiir.net/update"));
             }
         }
