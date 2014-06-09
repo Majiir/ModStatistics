@@ -311,6 +311,7 @@ namespace ModStatistics
                 finished = sceneStarted,
                 crashed = crashed,
                 statisticsVersion = version,
+                platform = Environment.OSVersion.Platform,
                 id = id.ToString("N"),
                 gameVersion = new
                 {
