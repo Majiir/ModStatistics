@@ -13,7 +13,7 @@ namespace ModStatistics
     internal class ModStatistics : MonoBehaviour
     {
         // The implementation with the highest version number will be allowed to run.
-        private const int version = 4;
+        private const int version = 5;
         private static int _version = version;
 
         private static readonly string folder = KSPUtil.ApplicationRootPath + "GameData" + Path.DirectorySeparatorChar + "ModStatistics" + Path.DirectorySeparatorChar;
@@ -170,7 +170,7 @@ namespace ModStatistics
             var files = Directory.GetFiles(folder, "report-*.json");
             using (var client = new WebClient())
             {
-                client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
+                setUserAgent(client);
                 client.Headers.Add(HttpRequestHeader.ContentType, "application/json");
 
                 client.UploadStringCompleted += (s, e) =>
@@ -205,6 +205,11 @@ namespace ModStatistics
             }
         }
 
+        private static void setUserAgent(WebClient client)
+        {
+            client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
+        }
+
         private class ManifestEntry
         {
             public string url = String.Empty;
@@ -236,6 +241,7 @@ namespace ModStatistics
                             {
                                 var dest = folder + Path.DirectorySeparatorChar + entry.path.Replace('/', Path.DirectorySeparatorChar);
                                 Directory.CreateDirectory(Path.GetDirectoryName(dest));
+                                setUserAgent(client);
                                 client.DownloadFileAsync(new Uri(entry.url), dest, entry);
                             }
                         }
@@ -263,7 +269,7 @@ namespace ModStatistics
                     }
                 };
 
-                client.Headers.Add(HttpRequestHeader.UserAgent, String.Format("ModStatistics/{0} ({1})", getInformationalVersion(Assembly.GetExecutingAssembly()), version));
+                setUserAgent(client);
                 client.DownloadStringAsync(new Uri(@"http://stats.majiir.net/update"));
             }
         }
@@ -311,6 +317,7 @@ namespace ModStatistics
                 finished = sceneStarted,
                 crashed = crashed,
                 statisticsVersion = version,
+                platform = Environment.OSVersion.Platform,
                 id = id.ToString("N"),
                 gameVersion = new
                 {
@@ -354,9 +361,17 @@ namespace ModStatistics
 
         private static string getAssemblyTitle(Assembly assembly)
         {
-            var attr = assembly.GetCustomAttributes(typeof(AssemblyTitleAttribute), false).OfType<AssemblyTitleAttribute>().FirstOrDefault();
-            if (attr == null) { return String.Empty; }
-            return attr.Title;
+            try
+            {
+                var attr = assembly.GetCustomAttributes(typeof(AssemblyTitleAttribute), false).OfType<AssemblyTitleAttribute>().FirstOrDefault();
+                if (attr == null) { return String.Empty; }
+                return attr.Title;
+            }
+            catch (TypeLoadException e)
+            {
+                Debug.LogError(String.Format("[ModStatistics] Error while inspecting assembly {0}. This probably means that {0} is targeting a runtime other than .NET 3.5. Please notify the author of {0} of this error.\n\n{1}", assembly.GetName().Name, e));
+                return null;
+            }
         }
     }
 }
