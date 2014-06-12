@@ -317,7 +317,7 @@ namespace ModStatistics
                 finished = sceneStarted,
                 crashed = crashed,
                 statisticsVersion = version,
-                platform = Environment.OSVersion.Platform,
+                platform = getRunningPlatform(),
                 id = id.ToString("N"),
                 gameVersion = new
                 {
@@ -371,6 +371,37 @@ namespace ModStatistics
             {
                 Debug.LogError(String.Format("[ModStatistics] Error while inspecting assembly {0}. This probably means that {0} is targeting a runtime other than .NET 3.5. Please notify the author of {0} of this error.\n\n{1}", assembly.GetName().Name, e));
                 return null;
+            }
+        }
+
+        private enum Platform
+        {
+            Windows,
+            Linux,
+            Mac
+        }
+
+        private static Platform getRunningPlatform()
+        {
+            var platform = Environment.OSVersion.Platform;
+            if (platform == PlatformID.Unix)
+            {
+                if (Directory.Exists("/Applications") && Directory.Exists("/Users") && Directory.Exists("/Volumes") && Directory.Exists("/System"))
+                {
+                    return Platform.Mac;
+                }
+                else
+                {
+                    return Platform.Linux;
+                }
+            }
+            else if (platform == PlatformID.MacOSX)
+            {
+                return Platform.Mac;
+            }
+            else
+            {
+                return Platform.Windows;
             }
         }
     }
