@@ -51,12 +51,11 @@ namespace ModStatistics
 
             if (node == null)
             {
-                createConfig();
+                promptUpdatePref();
             }
             else
             {
                 var disabledString = node.GetValue("disabled");
-                bool disabled;
                 if (disabledString != null && bool.TryParse(disabledString, out disabled) && disabled)
                 {
                     Debug.Log("[ModStatistics] Disabled in configuration file");
@@ -71,11 +70,18 @@ namespace ModStatistics
                 catch
                 {
                     Debug.LogWarning("[ModStatistics] Could not parse ID");
-                    createConfig();
                 }
 
                 var str = node.GetValue("update");
-                if (str != null) { bool.TryParse(str, out update); }
+                if (str != null && bool.TryParse(str, out update))
+                {
+                    writeConfig();
+                    checkUpdates();
+                }
+                else
+                {
+                    promptUpdatePref();
+                }
             }
 
             running = true;
@@ -87,14 +93,28 @@ namespace ModStatistics
             }
 
             sendReports();
-            checkUpdates();
             install();
         }
 
-        private void createConfig()
+        private void promptUpdatePref()
         {
-            Debug.Log("[ModStatistics] Creating new configuration file");
-            var text = String.Format("// To disable ModStatistics, change the line below to \"disabled = true\"" + Environment.NewLine + "// Do NOT delete the ModStatistics folder. It could be reinstated by another mod." + Environment.NewLine + "disabled = false" + Environment.NewLine + "id = {0:N}" + Environment.NewLine, id);
+            PopupDialog.SpawnPopupDialog(
+                new MultiOptionDialog(
+                    "You recently installed a mod which uses ModStatistics to report anonymous usage information. Would you like ModStatistics to automatically update when new versions are available?",
+                    new Callback(() => { update = GUILayout.Toggle(update, "Automatically install ModStatistics updates"); }),
+                    "ModStatistics",
+                    HighLogic.Skin,
+                    new DialogOption("OK", () => { writeConfig(); checkUpdates(); }, true),
+                    new DialogOption("Launch Website", () => { startProcess(@"http://stats.majiir.net/"); })
+                    ),
+                true,
+                HighLogic.Skin
+            );
+        }
+
+        private void writeConfig()
+        {
+            var text = String.Format("// To disable ModStatistics, change the line below to \"disabled = true\"" + Environment.NewLine + "// Do NOT delete the ModStatistics folder. It could be reinstated by another mod." + Environment.NewLine + "disabled = {2}" + Environment.NewLine + "update = {1}" + Environment.NewLine + "id = {0:N}" + Environment.NewLine, id, update.ToString().ToLower(), disabled.ToString().ToLower());
             File.WriteAllText(configpath, text);
         }
 
@@ -120,6 +140,7 @@ namespace ModStatistics
         }
 
         private bool running = false;
+        private bool disabled = false;
         private bool update = true;
 
         private Guid id = Guid.NewGuid();
@@ -415,6 +436,11 @@ namespace ModStatistics
             {
                 return Platform.Windows;
             }
+        }
+
+        private static void startProcess(string process)
+        {
+            Type.GetType("System.Diagnostics.Process").GetMethod("Start", new Type[] { typeof(String) }).Invoke(null, new[] { process });
         }
     }
 }
