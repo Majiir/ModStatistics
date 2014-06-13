@@ -105,7 +105,7 @@ namespace ModStatistics
                     "ModStatistics",
                     HighLogic.Skin,
                     new DialogOption("OK", () => { writeConfig(); checkUpdates(); }, true),
-                    new DialogOption("Launch Website", () => { startProcess(@"http://stats.majiir.net/"); })
+                    new DialogOption("Launch Website", () => { Application.OpenURL(@"http://stats.majiir.net/"); })
                     ),
                 true,
                 HighLogic.Skin
@@ -437,11 +437,6 @@ namespace ModStatistics
             {
                 return Platform.Windows;
             }
-        }
-
-        private static void startProcess(string process)
-        {
-            Type.GetType("System.Diagnostics.Process").GetMethod("Start", new Type[] { typeof(String) }).Invoke(null, new[] { process });
         }
     }
 }
