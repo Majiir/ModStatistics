@@ -16,7 +16,14 @@ namespace ModStatistics
         private const int version = 5;
         private static int _version = version;
 
-        private static readonly string folder = KSPUtil.ApplicationRootPath + "GameData" + Path.DirectorySeparatorChar + "ModStatistics" + Path.DirectorySeparatorChar;
+        private static readonly string folder;
+        private static readonly string configpath;
+
+        static ModStatistics()
+        {
+            folder = KSPUtil.ApplicationRootPath + "GameData" + Path.DirectorySeparatorChar + "ModStatistics" + Path.DirectorySeparatorChar;
+            configpath = folder + "settings.cfg";
+        }
 
         public void Start()
         {
@@ -40,12 +47,11 @@ namespace ModStatistics
 
             Directory.CreateDirectory(folder);
 
-            var configpath = folder + "settings.cfg";
             var node = ConfigNode.Load(configpath);
 
             if (node == null)
             {
-                createConfig(configpath);
+                createConfig();
             }
             else
             {
@@ -65,7 +71,7 @@ namespace ModStatistics
                 catch
                 {
                     Debug.LogWarning("[ModStatistics] Could not parse ID");
-                    createConfig(configpath);
+                    createConfig();
                 }
 
                 var str = node.GetValue("update");
@@ -85,7 +91,7 @@ namespace ModStatistics
             install();
         }
 
-        private void createConfig(string configpath)
+        private void createConfig()
         {
             id = Guid.NewGuid();
             Debug.Log("[ModStatistics] Creating new configuration file");
