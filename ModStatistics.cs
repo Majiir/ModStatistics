@@ -105,7 +105,7 @@ namespace ModStatistics
                     "ModStatistics",
                     HighLogic.Skin,
                     new DialogOption("OK", () => { writeConfig(); checkUpdates(); }, true),
-                    new DialogOption("Launch Website", () => { Application.OpenURL(@"http://stats.majiir.net/"); })
+                    new DialogOption("Launch Website", () => { Application.OpenURL(@"http://stats.majiir.net/"); }, false)
                     ),
                 true,
                 HighLogic.Skin
