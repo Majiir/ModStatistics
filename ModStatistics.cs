@@ -328,6 +328,7 @@ namespace ModStatistics
                     experimental = Versioning.Experimental,
                     isBeta = Versioning.isBeta,
                     isSteam = Versioning.IsSteam,
+                    is64 = IntPtr.Size == 8,
                 },
                 scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => p.Value.TotalMilliseconds),
                 assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
