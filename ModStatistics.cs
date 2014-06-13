@@ -399,7 +399,8 @@ namespace ModStatistics
             catch (TypeLoadException e)
             {
                 var name = assembly.GetName().Name;
-                if (!warnedAssemblies.Contains(name)) {
+                if (!warnedAssemblies.Contains(name))
+                {
                     warnedAssemblies.Add(name);
                     Debug.LogError(String.Format("[ModStatistics] Error while inspecting assembly {0}. This probably means that {0} is targeting a runtime other than .NET 3.5. Please notify the author of {0} of this error.\n\n{1}", name, e));
                 }
