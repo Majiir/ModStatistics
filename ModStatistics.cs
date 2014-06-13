@@ -13,10 +13,17 @@ namespace ModStatistics
     internal class ModStatistics : MonoBehaviour
     {
         // The implementation with the highest version number will be allowed to run.
-        private const int version = 5;
+        private const int version = 6;
         private static int _version = version;
 
-        private static readonly string folder = KSPUtil.ApplicationRootPath + "GameData" + Path.DirectorySeparatorChar + "ModStatistics" + Path.DirectorySeparatorChar;
+        private static readonly string folder;
+        private static readonly string configpath;
+
+        static ModStatistics()
+        {
+            folder = KSPUtil.ApplicationRootPath + "GameData" + Path.DirectorySeparatorChar + "ModStatistics" + Path.DirectorySeparatorChar;
+            configpath = folder + "settings.cfg";
+        }
 
         public void Start()
         {
@@ -40,17 +47,15 @@ namespace ModStatistics
 
             Directory.CreateDirectory(folder);
 
-            var configpath = folder + "settings.cfg";
             var node = ConfigNode.Load(configpath);
 
             if (node == null)
             {
-                createConfig(configpath);
+                promptUpdatePref();
             }
             else
             {
                 var disabledString = node.GetValue("disabled");
-                bool disabled;
                 if (disabledString != null && bool.TryParse(disabledString, out disabled) && disabled)
                 {
                     Debug.Log("[ModStatistics] Disabled in configuration file");
@@ -65,11 +70,18 @@ namespace ModStatistics
                 catch
                 {
                     Debug.LogWarning("[ModStatistics] Could not parse ID");
-                    createConfig(configpath);
                 }
 
                 var str = node.GetValue("update");
-                if (str != null) { bool.TryParse(str, out update); }
+                if (str != null && bool.TryParse(str, out update))
+                {
+                    writeConfig();
+                    checkUpdates();
+                }
+                else
+                {
+                    promptUpdatePref();
+                }
             }
 
             running = true;
@@ -81,15 +93,28 @@ namespace ModStatistics
             }
 
             sendReports();
-            checkUpdates();
             install();
         }
 
-        private void createConfig(string configpath)
+        private void promptUpdatePref()
         {
-            id = Guid.NewGuid();
-            Debug.Log("[ModStatistics] Creating new configuration file");
-            var text = String.Format("// To disable ModStatistics, change the line below to \"disabled = true\"" + Environment.NewLine + "// Do NOT delete the ModStatistics folder. It could be reinstated by another mod." + Environment.NewLine + "disabled = false" + Environment.NewLine + "id = {0:N}" + Environment.NewLine, id);
+            PopupDialog.SpawnPopupDialog(
+                new MultiOptionDialog(
+                    "You recently installed a mod which uses ModStatistics to report anonymous usage information. Would you like ModStatistics to automatically update when new versions are available?",
+                    new Callback(() => { update = GUILayout.Toggle(update, "Automatically install ModStatistics updates"); }),
+                    "ModStatistics",
+                    HighLogic.Skin,
+                    new DialogOption("OK", () => { writeConfig(); checkUpdates(); }, true),
+                    new DialogOption("Launch Website", () => { Application.OpenURL(@"http://stats.majiir.net/"); }, false)
+                    ),
+                true,
+                HighLogic.Skin
+            );
+        }
+
+        private void writeConfig()
+        {
+            var text = String.Format("// To disable ModStatistics, change the line below to \"disabled = true\"" + Environment.NewLine + "// Do NOT delete the ModStatistics folder. It could be reinstated by another mod." + Environment.NewLine + "disabled = {2}" + Environment.NewLine + "update = {1}" + Environment.NewLine + "id = {0:N}" + Environment.NewLine, id, update.ToString().ToLower(), disabled.ToString().ToLower());
             File.WriteAllText(configpath, text);
         }
 
@@ -115,9 +140,10 @@ namespace ModStatistics
         }
 
         private bool running = false;
+        private bool disabled = false;
         private bool update = true;
 
-        private Guid id;
+        private Guid id = Guid.NewGuid();
         private GameScenes? scene = null;
         private DateTime started = DateTime.UtcNow;
         private DateTime sceneStarted = DateTime.UtcNow;
@@ -317,7 +343,7 @@ namespace ModStatistics
                 finished = sceneStarted,
                 crashed = crashed,
                 statisticsVersion = version,
-                platform = Environment.OSVersion.Platform,
+                platform = getRunningPlatform(),
                 id = id.ToString("N"),
                 gameVersion = new
                 {
@@ -328,6 +354,7 @@ namespace ModStatistics
                     experimental = Versioning.Experimental,
                     isBeta = Versioning.isBeta,
                     isSteam = Versioning.IsSteam,
+                    is64 = IntPtr.Size == 8,
                 },
                 scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => p.Value.TotalMilliseconds),
                 assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
@@ -359,6 +386,8 @@ namespace ModStatistics
             return System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
         }
 
+        private static HashSet<String> warnedAssemblies = new HashSet<String>();
+
         private static string getAssemblyTitle(Assembly assembly)
         {
             try
@@ -369,8 +398,44 @@ namespace ModStatistics
             }
             catch (TypeLoadException e)
             {
-                Debug.LogError(String.Format("[ModStatistics] Error while inspecting assembly {0}. This probably means that {0} is targeting a runtime other than .NET 3.5. Please notify the author of {0} of this error.\n\n{1}", assembly.GetName().Name, e));
+                var name = assembly.GetName().Name;
+                if (!warnedAssemblies.Contains(name))
+                {
+                    warnedAssemblies.Add(name);
+                    Debug.LogError(String.Format("[ModStatistics] Error while inspecting assembly {0}. This probably means that {0} is targeting a runtime other than .NET 3.5. Please notify the author of {0} of this error.\n\n{1}", name, e));
+                }
                 return null;
+            }
+        }
+
+        private enum Platform
+        {
+            Windows,
+            Linux,
+            Mac
+        }
+
+        private static Platform getRunningPlatform()
+        {
+            var platform = Environment.OSVersion.Platform;
+            if (platform == PlatformID.Unix)
+            {
+                if (Directory.Exists("/Applications") && Directory.Exists("/Users") && Directory.Exists("/Volumes") && Directory.Exists("/System"))
+                {
+                    return Platform.Mac;
+                }
+                else
+                {
+                    return Platform.Linux;
+                }
+            }
+            else if (platform == PlatformID.MacOSX)
+            {
+                return Platform.Mac;
+            }
+            else
+            {
+                return Platform.Windows;
             }
         }
     }
