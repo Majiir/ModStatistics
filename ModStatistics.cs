@@ -13,7 +13,7 @@ namespace ModStatistics
     internal class ModStatistics : MonoBehaviour
     {
         // The implementation with the highest version number will be allowed to run.
-        private const int version = 6;
+        private const int version = 7;
         private static int _version = version;
 
         private static readonly string folder;
