@@ -357,6 +357,12 @@ namespace ModStatistics
                     is64 = IntPtr.Size == 8,
                 },
                 scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => p.Value.TotalMilliseconds),
+                systemInfo = new {
+                    cpus = SystemInfo.processorCount,
+                    gpuMemory = SystemInfo.graphicsMemorySize,
+                    gpuVendorId = SystemInfo.graphicsDeviceVendorID,
+                    systemMemory = SystemInfo.systemMemorySize,
+                },
                 assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
                              let fileVersion = assembly.assembly.GetName().Version
                              select new
