@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using UnityEngine;
 
 namespace ModStatistics
@@ -371,6 +373,7 @@ namespace ModStatistics
                                  name = assembly.name,
                                  title = getAssemblyTitle(assembly.assembly),
                                  url = assembly.url,
+                                 sha2 = getAssemblyHash(assembly.assembly),
                                  kspVersionMajor = assembly.versionMajor,
                                  kspVersionMinor = assembly.versionMinor,
                                  fileVersion = new
@@ -443,6 +446,22 @@ namespace ModStatistics
             {
                 return Platform.Windows;
             }
+        }
+
+        private static string getAssemblyHash(Assembly assembly)
+        {
+            byte[] hash;
+            using (var sha2 = SHA256.Create()) {
+                using (var stream = File.OpenRead(assembly.Location)) {
+                    hash = sha2.ComputeHash(stream);
+                }
+            }
+            var sb = new StringBuilder();
+            foreach (var b in hash)
+            {
+                sb.Append(b.ToString("X2"));
+            }
+            return sb.ToString();
         }
     }
 }
