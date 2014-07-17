@@ -335,9 +335,35 @@ namespace ModStatistics
             sceneTimes[lastScene.Value] += (sceneStarted - lastStarted);
         }
 
+        private object[] assembliesInfo = null;
+
         private string prepareReport(bool crashed)
         {
             updateSceneTimes();
+
+            if (assembliesInfo == null)
+            {
+                assembliesInfo = (from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
+                                  let fileVersion = assembly.assembly.GetName().Version
+                                  select new
+                                  {
+                                      dllName = assembly.dllName,
+                                      name = assembly.name,
+                                      title = getAssemblyTitle(assembly.assembly),
+                                      url = assembly.url,
+                                      sha2 = getAssemblyHash(assembly.assembly),
+                                      kspVersionMajor = assembly.versionMajor,
+                                      kspVersionMinor = assembly.versionMinor,
+                                      fileVersion = new
+                                      {
+                                          major = fileVersion.Major,
+                                          minor = fileVersion.Minor,
+                                          revision = fileVersion.Revision,
+                                          build = fileVersion.Build,
+                                      },
+                                      informationalVersion = getInformationalVersion(assembly.assembly),
+                                  }).ToArray();
+            }
 
             var report = new
             {
@@ -365,26 +391,7 @@ namespace ModStatistics
                     gpuVendorId = SystemInfo.graphicsDeviceVendorID,
                     systemMemory = SystemInfo.systemMemorySize,
                 },
-                assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
-                             let fileVersion = assembly.assembly.GetName().Version
-                             select new
-                             {
-                                 dllName = assembly.dllName,
-                                 name = assembly.name,
-                                 title = getAssemblyTitle(assembly.assembly),
-                                 url = assembly.url,
-                                 sha2 = getAssemblyHash(assembly.assembly),
-                                 kspVersionMajor = assembly.versionMajor,
-                                 kspVersionMinor = assembly.versionMinor,
-                                 fileVersion = new
-                                 {
-                                     major = fileVersion.Major,
-                                     minor = fileVersion.Minor,
-                                     revision = fileVersion.Revision,
-                                     build = fileVersion.Build,
-                                 },
-                                 informationalVersion = getInformationalVersion(assembly.assembly),
-                             },
+                assemblies = assembliesInfo,
             };
 
             return new JsonWriter().Write(report);
