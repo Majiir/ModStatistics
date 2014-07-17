@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using UnityEngine;
 
 namespace ModStatistics
@@ -13,7 +15,7 @@ namespace ModStatistics
     internal class ModStatistics : MonoBehaviour
     {
         // The implementation with the highest version number will be allowed to run.
-        private const int version = 6;
+        private const int version = 7;
         private static int _version = version;
 
         private static readonly string folder;
@@ -333,9 +335,35 @@ namespace ModStatistics
             sceneTimes[lastScene.Value] += (sceneStarted - lastStarted);
         }
 
+        private object[] assembliesInfo = null;
+
         private string prepareReport(bool crashed)
         {
             updateSceneTimes();
+
+            if (assembliesInfo == null)
+            {
+                assembliesInfo = (from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
+                                  let fileVersion = assembly.assembly.GetName().Version
+                                  select new
+                                  {
+                                      dllName = assembly.dllName,
+                                      name = assembly.name,
+                                      title = getAssemblyTitle(assembly.assembly),
+                                      url = assembly.url,
+                                      sha2 = getAssemblyHash(assembly.assembly),
+                                      kspVersionMajor = assembly.versionMajor,
+                                      kspVersionMinor = assembly.versionMinor,
+                                      fileVersion = new
+                                      {
+                                          major = fileVersion.Major,
+                                          minor = fileVersion.Minor,
+                                          revision = fileVersion.Revision,
+                                          build = fileVersion.Build,
+                                      },
+                                      informationalVersion = getInformationalVersion(assembly.assembly),
+                                  }).ToArray();
+            }
 
             var report = new
             {
@@ -345,6 +373,7 @@ namespace ModStatistics
                 statisticsVersion = version,
                 platform = getRunningPlatform(),
                 id = id.ToString("N"),
+                installedWithSteam = installedWithSteam(),
                 gameVersion = new
                 {
                     build = Versioning.BuildID,
@@ -357,25 +386,13 @@ namespace ModStatistics
                     is64 = IntPtr.Size == 8,
                 },
                 scenes = sceneTimes.OrderBy(p => p.Key).ToDictionary(p => p.Key.ToString().ToLower(), p => p.Value.TotalMilliseconds),
-                assemblies = from assembly in AssemblyLoader.loadedAssemblies.Skip(1)
-                             let fileVersion = assembly.assembly.GetName().Version
-                             select new
-                             {
-                                 dllName = assembly.dllName,
-                                 name = assembly.name,
-                                 title = getAssemblyTitle(assembly.assembly),
-                                 url = assembly.url,
-                                 kspVersionMajor = assembly.versionMajor,
-                                 kspVersionMinor = assembly.versionMinor,
-                                 fileVersion = new
-                                 {
-                                     major = fileVersion.Major,
-                                     minor = fileVersion.Minor,
-                                     revision = fileVersion.Revision,
-                                     build = fileVersion.Build,
-                                 },
-                                 informationalVersion = getInformationalVersion(assembly.assembly),
-                             },
+                systemInfo = new {
+                    cpus = SystemInfo.processorCount,
+                    gpuMemory = SystemInfo.graphicsMemorySize,
+                    gpuVendorId = SystemInfo.graphicsDeviceVendorID,
+                    systemMemory = SystemInfo.systemMemorySize,
+                },
+                assemblies = assembliesInfo,
             };
 
             return new JsonWriter().Write(report);
@@ -437,6 +454,28 @@ namespace ModStatistics
             {
                 return Platform.Windows;
             }
+        }
+
+        private static string getAssemblyHash(Assembly assembly)
+        {
+            byte[] hash;
+            using (var sha2 = SHA256.Create()) {
+                using (var stream = File.OpenRead(assembly.Location)) {
+                    hash = sha2.ComputeHash(stream);
+                }
+            }
+            var sb = new StringBuilder();
+            foreach (var b in hash)
+            {
+                sb.Append(b.ToString("X2"));
+            }
+            return sb.ToString();
+        }
+
+        private static bool installedWithSteam()
+        {
+            var path = KSPUtil.ApplicationRootPath;
+            return path.Contains(@"SteamApps\common") || path.Contains(@"SteamApps/common");
         }
     }
 }
