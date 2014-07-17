@@ -373,6 +373,7 @@ namespace ModStatistics
                 statisticsVersion = version,
                 platform = getRunningPlatform(),
                 id = id.ToString("N"),
+                installedWithSteam = installedWithSteam(),
                 gameVersion = new
                 {
                     build = Versioning.BuildID,
@@ -469,6 +470,12 @@ namespace ModStatistics
                 sb.Append(b.ToString("X2"));
             }
             return sb.ToString();
+        }
+
+        private static bool installedWithSteam()
+        {
+            var path = KSPUtil.ApplicationRootPath;
+            return path.Contains(@"SteamApps\common") || path.Contains(@"SteamApps/common");
         }
     }
 }
